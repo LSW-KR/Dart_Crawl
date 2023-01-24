@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup as bs
 import pandas as pd
-
 import time
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
@@ -16,12 +15,13 @@ from datetime import datetime,timedelta
 import numpy as np
 import re
 
+#Testing
 #page = requests.get("https://dart.fss.or.kr/report/viewer.do?rcpNo=20220629000520&dcmNo=8717618&eleId=0&offset=0&length=0&dtd=dart3.xsd")
 #soup = bs(page.text, "html.parser")
-
 #elements = soup.select('div.esg-entry-content a > span')
 
 
+#Find attribute from frame
 def return_value(frameaddr):
     option = wd.ChromeOptions()
     option.add_argument("start-maximized")
@@ -29,13 +29,13 @@ def return_value(frameaddr):
     driver = wd.Chrome(chrome_options=option, executable_path='chromedriver.exe')
     url = frameaddr
     driver.get(url)
-
     src = (WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.XPATH, "/html/body/div[3]/div/div[2]/div[2]/div[2]/div/iframe"))).get_attribute("src"))
     print(src)
     driver.close()
 
     return src   
 
+#Designing and Formating DF from Table
 #문서 텍스트로 변형
 def read_frame(frameaddr, table_num):
     res1 = requests.get(frameaddr)
@@ -43,24 +43,22 @@ def read_frame(frameaddr, table_num):
 
     table = soup.find_all('table')
 
-    ########################테이블 setup
+    #Table setup
     #발행결정 = table[3]
     #유상증자 결정 = table[3],table[5]
     #합병결정 = table[1]
 
-    df =pd.read_html(str(table))[table_num]
-    #display(df)
+    df = pd.read_html(str(table))[table_num]
 
     last_col = len(df.columns) - 1
 
-    #컬럼 세개 이상일때
+    #When the table has more than 3 Columns
     if len(df.columns) > 2:
         for i in range (0,len(df)):
             key_val = df.iloc[i,0]
 
             for j in range(1,last_col):
                 temp_val = df.iloc[i,j]
-
                 val_val = df.iloc[i,-1]
 
                 if key_val == temp_val:
@@ -71,36 +69,31 @@ def read_frame(frameaddr, table_num):
                     else:
                         df.iloc[i,0] = key_val +" "+temp_val  
 
-
     df_1 = pd.DataFrame(columns = ["key", "value"])
 
     df_1["key"] = df[0]
     df_1["value"] = df[last_col]
 
-    #value 이름 정리
+    #Variable Names
     for i in range (0,len(df_1)):
         name = df_1.iloc[i,0]
         pattern = r'\([^)]*\)'
         name = re.sub(pattern = pattern, repl='', string = name)
-
         no_num = re.compile('[^0-9]')
         name = ("".join(no_num.findall(name)))
         name = name.replace('.', '')
         name = name.replace('-','')
         df_1.iloc[i,0] = name
 
-    #value 값 정리 (ING)
+    #Changing Value Fomat from the Table
     for i in range (0,len(df_1)):
         value = df_1.iloc[i,1]
-
         try: 
             value = int(value)
             value = format(value,',d')
             df_1.iloc[i,1] = value
-
         except:
             pass
-        
         try:
             value = datetime.strptime(value, '%Y년 %m월 %d일')
             value = value.strftime('%Y%m%d')
@@ -108,44 +101,35 @@ def read_frame(frameaddr, table_num):
         except:
             pass
     
-
-    html =df_1.to_html()
+    html = df_1.to_html()
     text_file= open("예시example"+".html","w",encoding = 'UTF-8')
     text_file.write(html)
     text_file.close  
-
-
     display(df_1)
     return df_1
 
-
+#Return Result
 def hb(frameaddr):
     table_num = 1
     df_result = read_frame(return_value(frameaddr),table_num)
-
     return df_result
-
-
 def ys(frameaddr):
     table_num = 3
     df_1 = read_frame(return_value(frameaddr),table_num)
     table_num = 5
     df_2 = read_frame(return_value(frameaddr),table_num)
     df_result = pd.concat([df_1,df_2])
-
     return df_result
-
 def bh(frameaddr):
     table_num = 3
     df_result = read_frame(return_value(frameaddr),table_num)
-
     return df_result
 
-
+#Choose Which Table from Three Tables (hb, ys, bh)
+#Main
 def main():
     #hb('https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20220209000582')
     #ys('https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20220209000582')
     bh('https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20220708000007')
-
 
 main()
